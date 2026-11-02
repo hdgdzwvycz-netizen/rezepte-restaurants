@@ -9,8 +9,8 @@ Eine statische Webseite zum Sammeln und Bewerten von Rezepten und Restaurants. R
 | Datei | Inhalt |
 |---|---|
 | `index.html` | Seitenstruktur |
-| `css/style.css` | Design (hell/dunkel automatisch, Schrift Inter) |
-| `js/app.js` | Laden, Filtern, Sortieren, Formular |
+| `css/style.css` | Design im Kochbuch-Magazin-Stil (Fraunces + Inter, hell/dunkel umschaltbar) |
+| `js/app.js` | Laden, Filtern, Sortieren, Favoriten, Detailansicht, Formular mit Live-Vorschau |
 | `data/entries.json` | Alle Einträge (JSON-Array) |
 
 ## Neuen Eintrag hinzufügen
@@ -18,7 +18,7 @@ Eine statische Webseite zum Sammeln und Bewerten von Rezepten und Restaurants. R
 GitHub Pages kann keine Dateien schreiben. Deshalb erzeugt die Seite den Eintrag nur, und du speicherst ihn selbst:
 
 1. Seite öffnen und das Formular **„Eintrag hinzufügen“** ausfüllen (Sterne anklicken).
-2. **„JSON erzeugen“** und danach **„In die Zwischenablage“** klicken.
+2. **„JSON erzeugen“** und danach **„In die Zwischenablage“** klicken. Auf der Live-Seite öffnet der Button **„data/entries.json auf GitHub öffnen“** die Datei direkt im GitHub-Editor.
 3. `data/entries.json` öffnen (lokal oder direkt auf GitHub über das Stift-Symbol) und den Eintrag in das Array einfügen. Mehrere Einträge werden durch Kommas getrennt:
 
    ```json
@@ -42,6 +42,14 @@ Vor dem Commit kannst du die Datei prüfen:
 ```bash
 python3 -m json.tool data/entries.json > /dev/null
 ```
+
+## Gestaltung
+
+- Ab 4 Einträgen erscheint oben ein Bereich **Favoriten** mit den bis zu drei besten Einträgen (ab 4 Sternen).
+- Einträge werden nach Monat gruppiert, bei Sortierung nach Bewertung nach Sternen.
+- Ein Klick auf eine Karte öffnet die Detailansicht mit der vollständigen Notiz.
+- Einträge ohne Foto bekommen einen Farbverlauf mit dem Anfangsbuchstaben.
+- Fotos können auch im Repo liegen, z. B. `"foto": "img/spaetzle.jpg"`.
 
 ## Datenmodell
 

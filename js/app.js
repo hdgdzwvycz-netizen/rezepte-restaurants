@@ -1,358 +1,638 @@
-(function () {
+(() => {
   "use strict";
 
-  var DATA_URL = "data/entries.json";
-  var TYPEN = ["Rezept", "Restaurant"];
+  /* =========================================================
+     Konstanten
+     ========================================================= */
+  const DATA_URL = "data/entries.json";
+  const TYPEN = ["Rezept", "Restaurant"];
+  const MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+  const MONATE_KURZ = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.", "Dez."];
+  const STERNE_TEXT = ["Ohne Bewertung", "Ein Stern", "Zwei Sterne", "Drei Sterne", "Vier Sterne", "Fünf Sterne"];
+  const URTEIL = ["Noch nicht bewertet", "Enttäuschend", "Geht so", "Gut", "Sehr gut", "Hervorragend"];
+  const FAVORITEN_AB = 4; // Favoriten-Bereich erst ab so vielen Einträgen
 
-  var state = {
-    entries: [],
-    filter: "Alle",
-    sort: "datum-desc",
-    rating: 0
+  // Abgestimmte Verläufe für Platzhalter (warm, kochbuchartig)
+  const PALETTEN = [
+    ["#eeb48a", "#b9482a"],
+    ["#f3d27e", "#c9861a"],
+    ["#b8c99a", "#55703f"],
+    ["#d4a9bc", "#7d3f5c"],
+    ["#adc0d9", "#3b5478"],
+    ["#ecc1ab", "#a5583e"]
+  ];
+
+  const STAR_PATH = "M12 2.5l2.94 5.96 6.56.95-4.75 4.63 1.12 6.54L12 17.5l-5.87 3.08 1.12-6.54L2.5 9.41l6.56-.95z";
+
+  const svgIcon = (body) =>
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+
+  const ICONS = {
+    Rezept: svgIcon('<path d="M2 12h20"/><path d="M20 12v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8"/><path d="m4 8 16-4"/><path d="m8.86 6.78-.45-1.81a2 2 0 0 1 1.45-2.43l1.94-.48a2 2 0 0 1 2.43 1.46l.45 1.8"/>'),
+    Restaurant: svgIcon('<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>')
+  };
+  const ICON_SUN = svgIcon('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>');
+  const ICON_MOON = svgIcon('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>');
+  const ICON_CLOSE = svgIcon('<path d="M18 6 6 18M6 6l12 12"/>');
+
+  const EMPTY_ART =
+    '<svg class="empty-art" viewBox="0 0 160 160" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<circle cx="80" cy="84" r="44"/>' +
+      '<circle cx="80" cy="84" r="31" stroke-dasharray="2 8" opacity=".55"/>' +
+      '<path d="M24 42v22a7 7 0 0 0 14 0V42M31 42v22M31 71v57"/>' +
+      '<path d="M136 42c-8 7-11 20-11 36h11v50"/>' +
+      '<path d="M72 30c-4-5 4-8 0-14M88 30c-4-5 4-8 0-14" opacity=".6"/>' +
+      '<path d="M128 18v8M124 22h8M40 136v6M37 139h6" stroke-width="2" opacity=".7"/>' +
+    "</svg>";
+
+  /* =========================================================
+     Zustand & DOM
+     ========================================================= */
+  const state = { entries: [], filter: "Alle", sort: "datum-desc", rating: 0 };
+  const $ = (id) => document.getElementById(id);
+
+  const el = {
+    issue: $("issue"),
+    stats: $("stats"),
+    themeBtn: $("theme-btn"),
+    featured: $("favoriten"),
+    featuredGrid: $("featured-grid"),
+    listHead: $("list-head"),
+    toolbar: $("toolbar"),
+    list: $("list"),
+    empty: $("empty"),
+    sort: $("sort"),
+    tabs: document.querySelectorAll(".tab"),
+    form: $("entry-form"),
+    name: $("f-name"),
+    datum: $("f-datum"),
+    foto: $("f-foto"),
+    notiz: $("f-notiz"),
+    notizCount: $("notiz-count"),
+    starInput: $("star-input"),
+    ratingWord: $("rating-word"),
+    formError: $("form-error"),
+    preview: $("preview"),
+    output: $("output"),
+    jsonOut: $("json-out"),
+    copyBtn: $("copy-btn"),
+    ghEdit: $("gh-edit"),
+    detail: $("detail"),
+    detailBody: $("detail-body"),
+    detailClose: $("detail-close")
   };
 
-  var el = {
-    grid: document.getElementById("grid"),
-    empty: document.getElementById("empty"),
-    count: document.getElementById("count"),
-    sort: document.getElementById("sort"),
-    filterBtns: document.querySelectorAll("[data-filter]"),
-    form: document.getElementById("entry-form"),
-    starInput: document.getElementById("star-input"),
-    formError: document.getElementById("form-error"),
-    output: document.getElementById("output"),
-    jsonOut: document.getElementById("json-out"),
-    copyBtn: document.getElementById("copy-btn"),
-    copyStatus: document.getElementById("copy-status"),
-    datum: document.getElementById("f-datum")
-  };
+  /* =========================================================
+     Hilfsfunktionen
+     ========================================================= */
+  const HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]);
 
-  /* ---------- Hilfsfunktionen ---------- */
-
-  function escapeHtml(value) {
-    return String(value == null ? "" : value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-  }
-
-  // Nur http(s)-URLs als Bildquelle zulassen (verhindert javascript:/data:-Tricks).
+  // Nur http(s) als Bildquelle zulassen – relative Pfade wie img/foto.jpg sind erlaubt.
   function safeUrl(value) {
-    if (!value || typeof value !== "string") return "";
+    if (typeof value !== "string" || !value.trim()) return "";
     try {
-      var url = new URL(value.trim(), window.location.href);
+      const url = new URL(value.trim(), window.location.href);
       return url.protocol === "http:" || url.protocol === "https:" ? url.href : "";
-    } catch (e) {
+    } catch {
       return "";
     }
   }
 
   function clampRating(value) {
-    var n = Math.round(Number(value));
-    if (!isFinite(n)) return 0;
-    return Math.min(5, Math.max(0, n));
+    const n = Math.round(Number(value));
+    return Number.isFinite(n) ? Math.min(5, Math.max(0, n)) : 0;
   }
 
   function today() {
-    var d = new Date();
-    var pad = function (n) { return String(n).padStart(2, "0"); };
-    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }
 
-  function formatDate(iso) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || "")) return "";
-    var parts = iso.split("-");
-    return parts[2] + "." + parts[1] + "." + parts[0];
+  function parseDate(iso) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || "");
+    if (!m) return null;
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    const d = Number(m[3]);
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+    return { y, m: mo, d };
   }
+
+  function formatDate(iso, long = false) {
+    const p = parseDate(iso);
+    if (!p) return "";
+    return `${p.d}. ${(long ? MONATE : MONATE_KURZ)[p.m - 1]} ${p.y}`;
+  }
+
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+  function hashIndex(str, n) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+    return h % n;
+  }
+
+  // Erster Buchstabe oder erste Ziffer des Namens (Sonderzeichen werden übersprungen)
+  const initial = (name) => {
+    const m = /[\p{L}\p{N}]/u.exec(String(name));
+    return (m ? m[0] : "✦").toLocaleUpperCase("de-DE");
+  };
 
   function makeId() {
-    if (window.crypto && typeof window.crypto.randomUUID === "function") {
-      return window.crypto.randomUUID();
-    }
+    if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
     return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
   }
 
-  function starsHtml(rating) {
-    var r = clampRating(rating);
-    var html = '<span class="stars" role="img" aria-label="' + r + ' von 5 Sternen">';
-    for (var i = 1; i <= 5; i++) {
-      html += '<span class="' + (i <= r ? "on" : "") + '" aria-hidden="true">★</span>';
-    }
-    return html + "</span>";
+  const starSvg = (on = true) =>
+    `<svg class="star${on ? " is-on" : ""}" viewBox="0 0 24 24" aria-hidden="true"><path d="${STAR_PATH}"/></svg>`;
+
+  function starsHtml(rating, extraClass = "") {
+    const r = clampRating(rating);
+    let out = `<span class="stars ${extraClass}" role="img" aria-label="${r} von 5 Sternen">`;
+    for (let i = 1; i <= 5; i++) out += starSvg(i <= r);
+    return out + "</span>";
   }
 
-  var PLACEHOLDER_ICON =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-    '<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>';
+  /* =========================================================
+     Bausteine
+     ========================================================= */
+  function mediaHtml(entry, withBadge = true) {
+    const [a, b] = PALETTEN[hashIndex(entry.name + entry.typ, PALETTEN.length)];
+    const foto = safeUrl(entry.foto);
+    return (
+      '<div class="media">' +
+        `<div class="ph" style="--ph-a:${a};--ph-b:${b}">` +
+          `<span class="ph-initial">${escapeHtml(initial(entry.name))}</span>` +
+          `<span class="ph-icon">${ICONS[entry.typ]}</span>` +
+        "</div>" +
+        (foto ? `<img src="${escapeHtml(foto)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : "") +
+        (withBadge ? `<span class="badge badge--${entry.typ}">${ICONS[entry.typ]}${escapeHtml(entry.typ)}</span>` : "") +
+      "</div>"
+    );
+  }
 
-  /* ---------- Darstellung ---------- */
-
-  function cardHtml(entry) {
-    var typ = TYPEN.indexOf(entry.typ) >= 0 ? entry.typ : "Rezept";
-    var foto = safeUrl(entry.foto);
-    var media = foto
-      ? '<img src="' + escapeHtml(foto) + '" alt="' + escapeHtml(entry.name) + '" loading="lazy" referrerpolicy="no-referrer">'
-      : '<div class="placeholder">' + PLACEHOLDER_ICON + "</div>";
+  // Varianten: "grid" (Standard), "feature" (großer Favorit), "mini" (kleiner Favorit), "preview" (Formular)
+  function cardHtml(entry, variant = "grid", index) {
+    const title = variant === "preview"
+      ? escapeHtml(entry.name)
+      : `<button type="button" class="card-open" data-key="${escapeHtml(entry._key)}">${escapeHtml(entry.name)}</button>`;
+    const delay = typeof index === "number" ? ` style="--i:${Math.min(index, 12)}"` : "";
+    const kicker = variant === "feature" ? `<p class="card-kicker">${starSvg()} Bestbewertet</p>` : "";
+    const type = variant === "mini" ? `<p class="card-type card-type--${entry.typ}">${escapeHtml(entry.typ)}</p>` : "";
+    const note = entry.notiz && variant !== "mini" ? `<p class="card-note">${escapeHtml(entry.notiz)}</p>` : "";
+    const date = entry.datum ? `<time datetime="${escapeHtml(entry.datum)}">${escapeHtml(formatDate(entry.datum))}</time>` : "";
 
     return (
-      '<article class="card">' +
-        '<div class="card-media">' + media +
-          '<span class="badge badge-' + typ + '">' + escapeHtml(typ) + "</span>" +
-        "</div>" +
+      `<article class="card card--${variant}"${delay}>` +
+        mediaHtml(entry, variant !== "mini") +
         '<div class="card-body">' +
-          '<h3 class="card-title">' + escapeHtml(entry.name) + "</h3>" +
-          (entry.notiz ? '<p class="card-note">' + escapeHtml(entry.notiz) + "</p>" : "") +
-          '<div class="card-meta">' + starsHtml(entry.bewertung) +
-            '<time class="card-date" datetime="' + escapeHtml(entry.datum) + '">' + escapeHtml(formatDate(entry.datum)) + "</time>" +
-          "</div>" +
+          kicker + type +
+          `<h3 class="card-title">${title}</h3>` +
+          note +
+          `<div class="card-meta">${starsHtml(entry.bewertung)}${date}</div>` +
         "</div>" +
       "</article>"
     );
   }
 
-  function visibleEntries() {
-    var list = state.entries.filter(function (e) {
-      return state.filter === "Alle" || e.typ === state.filter;
+  /* =========================================================
+     Darstellung
+     ========================================================= */
+  function compare(a, b) {
+    const [key, order] = state.sort.split("-");
+    const dir = order === "asc" ? 1 : -1;
+    const byDate = String(a.datum).localeCompare(String(b.datum));
+    const byRating = a.bewertung - b.bewertung;
+    const cmp = key === "bewertung" ? byRating || byDate : byDate || byRating;
+    return cmp * dir || a.name.localeCompare(b.name, "de");
+  }
+
+  function groupInfo(entry) {
+    if (state.sort.startsWith("bewertung")) {
+      const r = entry.bewertung;
+      return { key: "r" + r, title: escapeHtml(STERNE_TEXT[r]), deco: r ? starsHtml(r, "stars--sm") : "" };
+    }
+    const p = parseDate(entry.datum);
+    if (!p) return { key: "ohne", title: "Ohne Datum", deco: "" };
+    return { key: `${p.y}-${p.m}`, title: `${MONATE[p.m - 1]} <em>${p.y}</em>`, deco: "" };
+  }
+
+  function renderStats() {
+    const all = state.entries;
+    if (!all.length) {
+      el.stats.innerHTML = "<span>Die erste Seite wartet noch auf dich</span>";
+      return;
+    }
+    const rezepte = all.filter((e) => e.typ === "Rezept").length;
+    const rated = all.filter((e) => e.bewertung > 0);
+    const parts = [
+      `<strong>${all.length}</strong> ${all.length === 1 ? "Eintrag" : "Einträge"}`,
+      `<strong>${rezepte}</strong> ${rezepte === 1 ? "Rezept" : "Rezepte"}`,
+      `<strong>${all.length - rezepte}</strong> ${all.length - rezepte === 1 ? "Restaurant" : "Restaurants"}`
+    ];
+    if (rated.length) {
+      const avg = rated.reduce((s, e) => s + e.bewertung, 0) / rated.length;
+      parts.push(`Ø <strong>${avg.toFixed(1).replace(".", ",")}</strong> ${starSvg()}`);
+    }
+    el.stats.innerHTML = parts.map((p) => `<span>${p}</span>`).join('<span class="dot" aria-hidden="true">✦</span>');
+  }
+
+  function renderFeatured() {
+    const all = state.entries;
+    const favs = all.length >= FAVORITEN_AB
+      ? all
+          .filter((e) => e.bewertung >= 4)
+          .sort((a, b) => b.bewertung - a.bewertung || String(b.datum).localeCompare(String(a.datum)))
+          .slice(0, 3)
+      : [];
+    el.featured.hidden = favs.length === 0;
+    el.featuredGrid.className = `featured-grid featured-grid--n${favs.length}`;
+    el.featuredGrid.innerHTML = favs.map((e, i) => cardHtml(e, i === 0 ? "feature" : "mini", i)).join("");
+  }
+
+  function renderTabs() {
+    const counts = { Alle: state.entries.length, Rezept: 0, Restaurant: 0 };
+    state.entries.forEach((e) => counts[e.typ]++);
+    document.querySelectorAll("[data-count]").forEach((span) => {
+      span.textContent = counts[span.dataset.count];
     });
-    var parts = state.sort.split("-");
-    var key = parts[0];
-    var dir = parts[1] === "asc" ? 1 : -1;
-    return list.slice().sort(function (a, b) {
-      var cmp;
-      if (key === "bewertung") {
-        cmp = clampRating(a.bewertung) - clampRating(b.bewertung);
-        if (cmp === 0) cmp = String(a.datum || "").localeCompare(String(b.datum || ""));
-      } else {
-        cmp = String(a.datum || "").localeCompare(String(b.datum || ""));
-      }
-      return cmp * dir;
+    el.tabs.forEach((tab) => {
+      const active = tab.dataset.filter === state.filter;
+      tab.classList.toggle("is-active", active);
+      tab.setAttribute("aria-pressed", String(active));
     });
   }
 
-  function render() {
-    var list = visibleEntries();
-    el.grid.innerHTML = list.map(cardHtml).join("");
+  function renderList() {
+    const total = state.entries.length;
+    el.listHead.hidden = total === 0;
+    el.toolbar.hidden = total === 0;
 
-    // Fehlerhafte Bild-URLs durch den Platzhalter ersetzen.
-    el.grid.querySelectorAll(".card-media img").forEach(function (img) {
-      img.addEventListener("error", function () {
-        var ph = document.createElement("div");
-        ph.className = "placeholder";
-        ph.innerHTML = PLACEHOLDER_ICON;
-        img.replaceWith(ph);
-      }, { once: true });
+    const list = state.entries
+      .filter((e) => state.filter === "Alle" || e.typ === state.filter)
+      .sort(compare);
+
+    if (!list.length) {
+      el.list.innerHTML = "";
+      renderEmpty(total);
+      return;
+    }
+    el.empty.hidden = true;
+    el.empty.innerHTML = "";
+
+    const groups = [];
+    list.forEach((entry) => {
+      const info = groupInfo(entry);
+      let last = groups[groups.length - 1];
+      if (!last || last.key !== info.key) {
+        last = { ...info, items: [] };
+        groups.push(last);
+      }
+      last.items.push(entry);
     });
 
-    var total = state.entries.length;
-    el.count.textContent = total ? list.length + " von " + total + " Einträgen" : "";
+    let index = 0;
+    el.list.innerHTML = groups.map((g) =>
+      '<section class="group">' +
+        '<header class="group-head">' +
+          `<h3 class="group-title">${g.deco}<span>${g.title}</span></h3>` +
+          `<span class="group-count">${plural(g.items.length, "Eintrag", "Einträge")}</span>` +
+        "</header>" +
+        `<div class="grid">${g.items.map((e) => cardHtml(e, "grid", index++)).join("")}</div>` +
+      "</section>"
+    ).join("");
+  }
 
-    if (list.length === 0) {
-      el.empty.hidden = false;
-      if (total === 0) {
-        el.empty.innerHTML =
-          '<span class="emoji" aria-hidden="true">🍽️</span>' +
-          "<h2>Noch keine Einträge</h2>" +
-          '<p>Hier ist noch alles leer – aber bestimmt nicht mehr lange. ' +
-          'Lege unten über <a href="#hinzufuegen">„Eintrag hinzufügen“</a> dein erstes Rezept oder Restaurant an.</p>';
-      } else {
-        var label = state.filter === "Rezept" ? "Rezepte" : "Restaurants";
-        el.empty.innerHTML =
-          '<span class="emoji" aria-hidden="true">🔍</span>' +
-          "<h2>Keine " + escapeHtml(label) + " gefunden</h2>" +
-          "<p>Für diesen Filter gibt es noch nichts. Probier „Alle“ oder füge einen neuen Eintrag hinzu.</p>";
-      }
+  function renderEmpty(total) {
+    el.empty.hidden = false;
+    if (total === 0) {
+      el.empty.className = "empty";
+      el.empty.innerHTML =
+        EMPTY_ART +
+        "<h2>Die erste Seite ist <em>noch leer</em></h2>" +
+        "<p>Hier entsteht deine Sammlung aus Lieblingsrezepten und Restaurants, " +
+        "die man nicht vergessen sollte. Fang einfach mit dem ersten Eintrag an.</p>" +
+        '<a class="btn btn-primary" href="#hinzufuegen">Ersten Eintrag anlegen</a>';
     } else {
-      el.empty.hidden = true;
-      el.empty.innerHTML = "";
+      const label = state.filter === "Rezept" ? "Rezepte" : "Restaurants";
+      el.empty.className = "empty empty--small";
+      el.empty.innerHTML =
+        `<h2>Noch keine <em>${escapeHtml(label)}</em></h2>` +
+        "<p>Für diesen Filter gibt es noch nichts. Zeig alle Einträge an oder lege einen neuen an.</p>" +
+        '<button type="button" class="btn btn-ghost" data-action="show-all">Alle anzeigen</button>';
     }
   }
 
-  function showLoadError() {
-    el.count.textContent = "";
-    el.empty.hidden = false;
-    el.empty.innerHTML =
-      '<span class="emoji" aria-hidden="true">⚠️</span>' +
-      "<h2>Einträge konnten nicht geladen werden</h2>" +
-      "<p>Prüfe, ob <code>data/entries.json</code> gültiges JSON enthält. " +
-      "Lokal muss die Seite über einen Webserver geöffnet werden (nicht per Doppelklick).</p>";
+  function renderAll() {
+    renderStats();
+    renderTabs();
+    renderFeatured();
+    renderList();
   }
 
-  /* ---------- Daten laden ---------- */
+  function showLoadError() {
+    el.stats.innerHTML = "<span>Einträge konnten nicht geladen werden</span>";
+    el.listHead.hidden = true;
+    el.toolbar.hidden = true;
+    el.empty.hidden = false;
+    el.empty.className = "empty empty--small";
+    el.empty.innerHTML =
+      "<h2>Da ist etwas <em>angebrannt</em></h2>" +
+      "<p>Prüfe, ob <code>data/entries.json</code> gültiges JSON enthält. " +
+      "Lokal muss die Seite über einen Webserver geöffnet werden, nicht per Doppelklick.</p>";
+  }
 
+  /* =========================================================
+     Detailansicht
+     ========================================================= */
+  function openDetail(key) {
+    const e = state.entries.find((x) => x._key === key);
+    if (!e || typeof el.detail.showModal !== "function") return;
+    el.detailBody.innerHTML =
+      mediaHtml(e, true) +
+      '<div class="detail-body">' +
+        `<h2 id="detail-title" class="detail-title">${escapeHtml(e.name)}</h2>` +
+        '<div class="detail-meta">' +
+          starsHtml(e.bewertung) +
+          `<span class="detail-word">${escapeHtml(URTEIL[e.bewertung])}</span>` +
+          (e.datum ? `<time class="detail-date" datetime="${escapeHtml(e.datum)}">${escapeHtml(formatDate(e.datum, true))}</time>` : "") +
+        "</div>" +
+        (e.notiz
+          ? `<p class="detail-note">${escapeHtml(e.notiz)}</p>`
+          : '<p class="detail-note is-empty">Zu diesem Eintrag gibt es noch keine Notiz.</p>') +
+      "</div>";
+    el.detail.showModal();
+    el.detail.scrollTop = 0;
+  }
+
+  el.detailClose.innerHTML = ICON_CLOSE;
+  el.detail.addEventListener("click", (ev) => {
+    if (ev.target === el.detail) el.detail.close();
+  });
+
+  /* =========================================================
+     Daten laden
+     ========================================================= */
   function normalize(raw) {
     if (!Array.isArray(raw)) return [];
     return raw
-      .filter(function (e) { return e && typeof e === "object" && e.name; })
-      .map(function (e) {
-        return {
-          id: String(e.id || makeId()),
-          name: String(e.name),
-          typ: TYPEN.indexOf(e.typ) >= 0 ? e.typ : "Rezept",
-          bewertung: clampRating(e.bewertung),
-          notiz: e.notiz ? String(e.notiz) : "",
-          foto: e.foto ? String(e.foto) : "",
-          datum: e.datum ? String(e.datum) : ""
-        };
-      });
+      .filter((e) => e && typeof e === "object" && String(e.name ?? "").trim())
+      .map((e, i) => ({
+        _key: "e" + i,
+        id: String(e.id ?? ""),
+        name: String(e.name).trim(),
+        typ: TYPEN.includes(e.typ) ? e.typ : "Rezept",
+        bewertung: clampRating(e.bewertung),
+        notiz: e.notiz ? String(e.notiz) : "",
+        foto: e.foto ? String(e.foto) : "",
+        datum: e.datum ? String(e.datum) : ""
+      }));
   }
 
-  function load() {
-    fetch(DATA_URL, { cache: "no-cache" })
-      .then(function (res) {
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        return res.json();
-      })
-      .then(function (data) {
-        state.entries = normalize(data);
-        render();
-      })
-      .catch(function (err) {
-        console.error("Laden fehlgeschlagen:", err);
-        showLoadError();
-      });
+  async function load() {
+    try {
+      const res = await fetch(DATA_URL, { cache: "no-cache" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      state.entries = normalize(await res.json());
+      renderAll();
+    } catch (err) {
+      console.error("Laden fehlgeschlagen:", err);
+      showLoadError();
+    }
   }
 
-  /* ---------- Filter & Sortierung ---------- */
+  /* =========================================================
+     Filter, Sortierung, Klicks
+     ========================================================= */
+  function setFilter(filter) {
+    state.filter = filter;
+    renderTabs();
+    renderList();
+  }
 
-  el.filterBtns.forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      state.filter = btn.getAttribute("data-filter");
-      el.filterBtns.forEach(function (b) {
-        var active = b === btn;
-        b.classList.toggle("is-active", active);
-        b.setAttribute("aria-pressed", active ? "true" : "false");
-      });
-      render();
-    });
-  });
-
-  el.sort.addEventListener("change", function () {
+  el.tabs.forEach((tab) => tab.addEventListener("click", () => setFilter(tab.dataset.filter)));
+  el.sort.addEventListener("change", () => {
     state.sort = el.sort.value;
-    render();
+    renderList();
   });
 
-  /* ---------- Sterne im Formular ---------- */
+  document.addEventListener("click", (ev) => {
+    const open = ev.target.closest(".card-open");
+    if (open) {
+      openDetail(open.dataset.key);
+      return;
+    }
+    if (ev.target.closest("[data-action='show-all']")) setFilter("Alle");
+  });
 
-  var starButtons = [];
+  // Kaputte Bild-URLs: Bild entfernen, der Platzhalter darunter bleibt sichtbar.
+  document.addEventListener("error", (ev) => {
+    const t = ev.target;
+    if (t instanceof HTMLImageElement && t.closest(".media")) t.remove();
+  }, true);
+
+  /* =========================================================
+     Hell / Dunkel
+     ========================================================= */
+  const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  const effectiveTheme = () => document.documentElement.getAttribute("data-theme") || (darkQuery.matches ? "dark" : "light");
+
+  function updateThemeButton() {
+    const dark = effectiveTheme() === "dark";
+    el.themeBtn.innerHTML = dark ? ICON_SUN : ICON_MOON;
+    el.themeBtn.setAttribute("aria-label", dark ? "Helles Design aktivieren" : "Dunkles Design aktivieren");
+    el.themeBtn.title = dark ? "Helles Design" : "Dunkles Design";
+  }
+
+  el.themeBtn.addEventListener("click", () => {
+    const next = effectiveTheme() === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("theme", next); } catch { /* privat/blockiert */ }
+    updateThemeButton();
+  });
+  darkQuery.addEventListener?.("change", updateThemeButton);
+
+  /* =========================================================
+     Formular
+     ========================================================= */
+  document.querySelectorAll("[data-icon]").forEach((node) => { node.innerHTML = ICONS[node.dataset.icon]; });
+
+  const starButtons = [];
 
   function paintStars(value) {
-    starButtons.forEach(function (b, i) {
-      b.classList.toggle("on", i < value);
-    });
+    starButtons.forEach((b, i) => b.classList.toggle("is-on", i < value));
+    el.ratingWord.textContent = URTEIL[value];
   }
 
   function setRating(value) {
     state.rating = value;
-    starButtons.forEach(function (b, i) {
-      b.setAttribute("aria-checked", i + 1 === value ? "true" : "false");
+    starButtons.forEach((b, i) => {
+      b.setAttribute("aria-checked", String(i + 1 === value));
       b.tabIndex = (value ? i + 1 === value : i === 0) ? 0 : -1;
     });
     paintStars(value);
+    updatePreview();
   }
 
-  for (var i = 1; i <= 5; i++) {
-    (function (n) {
-      var b = document.createElement("button");
-      b.type = "button";
-      b.className = "star-btn";
-      b.textContent = "★";
-      b.setAttribute("role", "radio");
-      b.setAttribute("aria-label", n + (n === 1 ? " Stern" : " Sterne"));
-      b.addEventListener("click", function () { setRating(n); });
-      b.addEventListener("mouseenter", function () { paintStars(n); });
-      b.addEventListener("keydown", function (ev) {
-        var next = null;
-        if (ev.key === "ArrowRight" || ev.key === "ArrowUp") next = Math.min(5, n + 1);
-        if (ev.key === "ArrowLeft" || ev.key === "ArrowDown") next = Math.max(1, n - 1);
-        if (next !== null) {
-          ev.preventDefault();
-          setRating(next);
-          starButtons[next - 1].focus();
-        }
-      });
-      starButtons.push(b);
-      el.starInput.appendChild(b);
-    })(i);
+  for (let n = 1; n <= 5; n++) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "star-btn";
+    b.innerHTML = starSvg(false).replace(" is-on", "");
+    b.setAttribute("role", "radio");
+    b.setAttribute("aria-label", `${n} ${n === 1 ? "Stern" : "Sterne"} – ${URTEIL[n]}`);
+    b.addEventListener("click", () => {
+      setRating(n);
+      b.classList.remove("pop");
+      void b.offsetWidth; // Animation neu starten
+      b.classList.add("pop");
+    });
+    b.addEventListener("animationend", () => b.classList.remove("pop"));
+    b.addEventListener("mouseenter", () => paintStars(n));
+    b.addEventListener("keydown", (ev) => {
+      let next = null;
+      if (ev.key === "ArrowRight" || ev.key === "ArrowUp") next = Math.min(5, n + 1);
+      if (ev.key === "ArrowLeft" || ev.key === "ArrowDown") next = Math.max(1, n - 1);
+      if (next !== null) {
+        ev.preventDefault();
+        setRating(next);
+        starButtons[next - 1].focus();
+      }
+    });
+    starButtons.push(b);
+    el.starInput.appendChild(b);
   }
-  el.starInput.addEventListener("mouseleave", function () { paintStars(state.rating); });
+  el.starInput.addEventListener("mouseleave", () => paintStars(state.rating));
 
-  /* ---------- Formular ---------- */
-
-  function showError(msg) {
-    el.formError.textContent = msg;
-    el.formError.hidden = !msg;
-  }
-
-  function resetForm() {
-    setRating(0);
-    el.datum.value = today();
-    showError("");
-  }
-
-  el.form.addEventListener("submit", function (ev) {
-    ev.preventDefault();
-    var fd = new FormData(el.form);
-    var name = String(fd.get("name") || "").trim();
-    var typ = String(fd.get("typ") || "");
-    var datum = String(fd.get("datum") || "");
-    var foto = String(fd.get("foto") || "").trim();
-    var notiz = String(fd.get("notiz") || "").trim();
-
-    if (!name) return showError("Bitte gib einen Namen ein.");
-    if (TYPEN.indexOf(typ) < 0) return showError("Bitte wähle einen Typ.");
-    if (state.rating < 1) return showError("Bitte vergib 1 bis 5 Sterne.");
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(datum)) return showError("Bitte gib ein gültiges Datum an.");
-    if (foto && !safeUrl(foto)) return showError("Die Foto-URL muss mit http:// oder https:// beginnen.");
-    showError("");
-
-    var entry = {
-      id: makeId(),
-      name: name,
-      typ: typ,
+  function draftFromForm() {
+    const fd = new FormData(el.form);
+    const typ = String(fd.get("typ") || "");
+    return {
+      name: String(fd.get("name") || "").trim(),
+      typ: TYPEN.includes(typ) ? typ : "Rezept",
       bewertung: state.rating,
-      notiz: notiz,
-      datum: datum
+      notiz: String(fd.get("notiz") || "").trim(),
+      foto: String(fd.get("foto") || "").trim(),
+      datum: String(fd.get("datum") || "")
     };
-    if (foto) entry.foto = foto;
-    // Feldreihenfolge wie im Datenmodell
-    var ordered = { id: entry.id, name: entry.name, typ: entry.typ, bewertung: entry.bewertung, notiz: entry.notiz };
-    if (entry.foto) ordered.foto = entry.foto;
-    ordered.datum = entry.datum;
+  }
 
-    el.jsonOut.value = JSON.stringify(ordered, null, 2);
+  let previewFrame = 0;
+  function updatePreview() {
+    cancelAnimationFrame(previewFrame);
+    previewFrame = requestAnimationFrame(() => {
+      const d = draftFromForm();
+      el.preview.innerHTML = cardHtml({
+        ...d,
+        name: d.name || "Name des Eintrags",
+        notiz: d.notiz || "Deine Notiz erscheint hier.",
+        _key: "preview"
+      }, "preview");
+      el.notizCount.textContent = `${el.notiz.value.length} / 1000`;
+    });
+  }
+
+  function showError(message, field) {
+    el.formError.textContent = message;
+    el.formError.hidden = !message;
+    if (field) {
+      if (field.classList.contains("input")) field.setAttribute("aria-invalid", "true");
+      field.focus();
+    }
+  }
+
+  function clearInvalid() {
+    el.form.querySelectorAll("[aria-invalid]").forEach((f) => f.removeAttribute("aria-invalid"));
+  }
+
+  function githubEditUrl() {
+    const host = window.location.hostname;
+    if (!host.endsWith(".github.io")) return "";
+    const owner = host.slice(0, -".github.io".length);
+    const first = window.location.pathname.split("/").filter(Boolean)[0];
+    const repo = first && !first.includes(".") ? first : host;
+    return `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/edit/main/data/entries.json`;
+  }
+
+  let copyTimer = 0;
+  function resetCopyButton() {
+    el.copyBtn.textContent = "In die Zwischenablage";
+    el.copyBtn.classList.remove("is-done");
+  }
+
+  el.form.addEventListener("input", (ev) => {
+    if (ev.target.hasAttribute("aria-invalid")) ev.target.removeAttribute("aria-invalid");
+    updatePreview();
+  });
+  el.form.addEventListener("change", updatePreview);
+
+  el.form.addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    clearInvalid();
+    const d = draftFromForm();
+
+    if (!d.name) return showError("Bitte gib einen Namen ein.", el.name);
+    if (state.rating < 1) return showError("Bitte vergib 1 bis 5 Sterne.", starButtons[0]);
+    if (!parseDate(d.datum)) return showError("Bitte wähle ein gültiges Datum.", el.datum);
+    if (d.foto && !safeUrl(d.foto)) return showError("Die Foto-URL muss mit http:// oder https:// beginnen.", el.foto);
+    showError("");
+
+    const entry = { id: makeId(), name: d.name, typ: d.typ, bewertung: d.bewertung, notiz: d.notiz };
+    if (d.foto) entry.foto = d.foto;
+    entry.datum = d.datum;
+
+    const json = JSON.stringify(entry, null, 2);
+    el.jsonOut.value = json;
+    el.jsonOut.rows = json.split("\n").length;
+
+    const gh = githubEditUrl();
+    el.ghEdit.hidden = !gh;
+    if (gh) el.ghEdit.href = gh;
+
+    resetCopyButton();
     el.output.hidden = false;
-    el.copyStatus.textContent = "";
-    el.jsonOut.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.output.scrollIntoView({ behavior: "smooth", block: "nearest" });
   });
 
-  el.form.addEventListener("reset", function () {
-    setTimeout(resetForm, 0);
-    el.output.hidden = true;
+  el.form.addEventListener("reset", () => {
+    setTimeout(() => {
+      clearInvalid();
+      showError("");
+      el.datum.value = today();
+      el.output.hidden = true;
+      setRating(0);
+    }, 0);
   });
 
-  el.copyBtn.addEventListener("click", function () {
-    var text = el.jsonOut.value;
-    var done = function () { el.copyStatus.textContent = "✓ Kopiert!"; };
-    var fallback = function () {
+  el.copyBtn.addEventListener("click", async () => {
+    const text = el.jsonOut.value;
+    let ok = false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        ok = true;
+      }
+    } catch { /* Fallback unten */ }
+    if (!ok) {
       el.jsonOut.focus();
       el.jsonOut.select();
-      try {
-        document.execCommand("copy") ? done() : (el.copyStatus.textContent = "Bitte manuell kopieren (Strg/Cmd + C).");
-      } catch (e) {
-        el.copyStatus.textContent = "Bitte manuell kopieren (Strg/Cmd + C).";
-      }
-    };
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(text).then(done, fallback);
-    } else {
-      fallback();
+      try { ok = document.execCommand("copy"); } catch { ok = false; }
     }
+    el.copyBtn.textContent = ok ? "Kopiert ✓" : "Bitte mit Strg/Cmd + C kopieren";
+    el.copyBtn.classList.toggle("is-done", ok);
+    clearTimeout(copyTimer);
+    copyTimer = setTimeout(resetCopyButton, 2600);
   });
 
-  /* ---------- Start ---------- */
-
-  resetForm();
+  /* =========================================================
+     Start
+     ========================================================= */
+  const now = new Date();
+  el.issue.textContent = `Ausgabe ${MONATE[now.getMonth()]} ${now.getFullYear()}`;
+  el.datum.value = today();
+  updateThemeButton();
+  setRating(0);
   load();
 })();
