@@ -12,14 +12,16 @@
   const URTEIL = ["Noch nicht bewertet", "Enttäuschend", "Geht so", "Gut", "Sehr gut", "Hervorragend"];
   const FAVORITEN_AB = 4; // Favoriten-Bereich erst ab so vielen Einträgen
 
-  // Abgestimmte Verläufe für Platzhalter (warm, kochbuchartig)
+  // Pastell-Verläufe für Platzhalter: gleiche Helligkeit und Sättigung,
+  // damit die verschiedenen Farbtöne miteinander harmonieren.
+  // [Verlauf hell, Verlauf dunkler, Farbe der Initiale]
   const PALETTEN = [
-    ["#eeb48a", "#b9482a"],
-    ["#f3d27e", "#c9861a"],
-    ["#b8c99a", "#55703f"],
-    ["#d4a9bc", "#7d3f5c"],
-    ["#adc0d9", "#3b5478"],
-    ["#ecc1ab", "#a5583e"]
+    ["#e8f5ec", "#c6e5d0", "#2f6b49"], // Minze
+    ["#f0f5e6", "#d5e3bf", "#4f6a2c"], // Salbei
+    ["#fff8dc", "#f8e8a8", "#3a7a55"], // Butter mit Salbei-Initiale (analog statt Senfbraun)
+    ["#fdeef3", "#f6cfdc", "#a8325a"], // Himbeere
+    ["#f3effb", "#ddd4f3", "#5a4a99"], // Flieder
+    ["#e7f5f4", "#c4e6e3", "#2b6e69"]  // Meerglas
   ];
 
   const STAR_PATH = "M12 2.5l2.94 5.96 6.56.95-4.75 4.63 1.12 6.54L12 17.5l-5.87 3.08 1.12-6.54L2.5 9.41l6.56-.95z";
@@ -31,8 +33,6 @@
     Rezept: svgIcon('<path d="M2 12h20"/><path d="M20 12v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8"/><path d="m4 8 16-4"/><path d="m8.86 6.78-.45-1.81a2 2 0 0 1 1.45-2.43l1.94-.48a2 2 0 0 1 2.43 1.46l.45 1.8"/>'),
     Restaurant: svgIcon('<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>')
   };
-  const ICON_SUN = svgIcon('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>');
-  const ICON_MOON = svgIcon('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>');
   const ICON_CLOSE = svgIcon('<path d="M18 6 6 18M6 6l12 12"/>');
 
   const EMPTY_ART =
@@ -41,8 +41,8 @@
       '<circle cx="80" cy="84" r="31" stroke-dasharray="2 8" opacity=".55"/>' +
       '<path d="M24 42v22a7 7 0 0 0 14 0V42M31 42v22M31 71v57"/>' +
       '<path d="M136 42c-8 7-11 20-11 36h11v50"/>' +
-      '<path d="M72 30c-4-5 4-8 0-14M88 30c-4-5 4-8 0-14" opacity=".6"/>' +
-      '<path d="M128 18v8M124 22h8M40 136v6M37 139h6" stroke-width="2" opacity=".7"/>' +
+      '<path class="art-accent" d="M72 30c-4-5 4-8 0-14M88 30c-4-5 4-8 0-14" opacity=".7"/>' +
+      '<path class="art-accent" d="M128 18v8M124 22h8M40 136v6M37 139h6" stroke-width="2" opacity=".8"/>' +
     "</svg>";
 
   /* =========================================================
@@ -54,7 +54,6 @@
   const el = {
     issue: $("issue"),
     stats: $("stats"),
-    themeBtn: $("theme-btn"),
     featured: $("favoriten"),
     featuredGrid: $("featured-grid"),
     listHead: $("list-head"),
@@ -159,11 +158,11 @@
      Bausteine
      ========================================================= */
   function mediaHtml(entry, withBadge = true) {
-    const [a, b] = PALETTEN[hashIndex(entry.name + entry.typ, PALETTEN.length)];
+    const [a, b, ink] = PALETTEN[hashIndex(entry.name + entry.typ, PALETTEN.length)];
     const foto = safeUrl(entry.foto);
     return (
       '<div class="media">' +
-        `<div class="ph" style="--ph-a:${a};--ph-b:${b}">` +
+        `<div class="ph" style="--ph-a:${a};--ph-b:${b};--ph-ink:${ink}">` +
           `<span class="ph-initial">${escapeHtml(initial(entry.name))}</span>` +
           `<span class="ph-icon">${ICONS[entry.typ]}</span>` +
         "</div>" +
@@ -236,7 +235,7 @@
       const avg = rated.reduce((s, e) => s + e.bewertung, 0) / rated.length;
       parts.push(`Ø <strong>${avg.toFixed(1).replace(".", ",")}</strong> ${starSvg()}`);
     }
-    el.stats.innerHTML = parts.map((p) => `<span>${p}</span>`).join('<span class="dot" aria-hidden="true">✦</span>');
+    el.stats.innerHTML = parts.map((p) => `<span>${p}</span>`).join("");
   }
 
   function renderFeatured() {
@@ -434,27 +433,6 @@
   }, true);
 
   /* =========================================================
-     Hell / Dunkel
-     ========================================================= */
-  const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
-  const effectiveTheme = () => document.documentElement.getAttribute("data-theme") || (darkQuery.matches ? "dark" : "light");
-
-  function updateThemeButton() {
-    const dark = effectiveTheme() === "dark";
-    el.themeBtn.innerHTML = dark ? ICON_SUN : ICON_MOON;
-    el.themeBtn.setAttribute("aria-label", dark ? "Helles Design aktivieren" : "Dunkles Design aktivieren");
-    el.themeBtn.title = dark ? "Helles Design" : "Dunkles Design";
-  }
-
-  el.themeBtn.addEventListener("click", () => {
-    const next = effectiveTheme() === "dark" ? "light" : "dark";
-    document.documentElement.setAttribute("data-theme", next);
-    try { localStorage.setItem("theme", next); } catch { /* privat/blockiert */ }
-    updateThemeButton();
-  });
-  darkQuery.addEventListener?.("change", updateThemeButton);
-
-  /* =========================================================
      Formular
      ========================================================= */
   document.querySelectorAll("[data-icon]").forEach((node) => { node.innerHTML = ICONS[node.dataset.icon]; });
@@ -632,7 +610,6 @@
   const now = new Date();
   el.issue.textContent = `Ausgabe ${MONATE[now.getMonth()]} ${now.getFullYear()}`;
   el.datum.value = today();
-  updateThemeButton();
   setRating(0);
   load();
 })();

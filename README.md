@@ -9,7 +9,7 @@ Eine statische Webseite zum Sammeln und Bewerten von Rezepten und Restaurants. R
 | Datei | Inhalt |
 |---|---|
 | `index.html` | Seitenstruktur |
-| `css/style.css` | Design im Kochbuch-Magazin-Stil (Fraunces + Inter, hell/dunkel umschaltbar) |
+| `css/style.css` | Helles Design: Salbeigrün und Himbeere, Schriften Fraunces + Inter |
 | `js/app.js` | Laden, Filtern, Sortieren, Favoriten, Detailansicht, Formular mit Live-Vorschau |
 | `data/entries.json` | Alle Einträge (JSON-Array) |
 
@@ -45,6 +45,7 @@ python3 -m json.tool data/entries.json > /dev/null
 
 ## Gestaltung
 
+- **Farbkonzept:** helles Grundweiß, Salbeigrün als Akzentfarbe, Himbeere für Restaurants (Komplementärkontrast zu Grün). Alle Farben stehen als Variablen ganz oben in `css/style.css` und lassen sich dort zentral ändern.
 - Ab 4 Einträgen erscheint oben ein Bereich **Favoriten** mit den bis zu drei besten Einträgen (ab 4 Sternen).
 - Einträge werden nach Monat gruppiert, bei Sortierung nach Bewertung nach Sternen.
 - Ein Klick auf eine Karte öffnet die Detailansicht mit der vollständigen Notiz.
