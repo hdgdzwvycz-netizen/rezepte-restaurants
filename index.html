@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Genussbuch – Rezepte &amp; Restaurants</title>
+  <meta name="description" content="Gesammelte Rezepte und Restaurants mit Bewertung.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="container">
+      <p class="eyebrow">Genussbuch</p>
+      <h1>Rezepte &amp; Restaurants</h1>
+      <p class="lead">Lieblingsgerichte und Lieblingsorte – gesammelt, bewertet, wiedergefunden.</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="toolbar" aria-label="Filter und Sortierung">
+      <div class="segmented" role="group" aria-label="Nach Typ filtern">
+        <button type="button" class="seg-btn is-active" data-filter="Alle" aria-pressed="true">Alle</button>
+        <button type="button" class="seg-btn" data-filter="Rezept" aria-pressed="false">Rezepte</button>
+        <button type="button" class="seg-btn" data-filter="Restaurant" aria-pressed="false">Restaurants</button>
+      </div>
+      <label class="sort">
+        <span>Sortieren nach</span>
+        <select id="sort">
+          <option value="datum-desc">Datum (neueste zuerst)</option>
+          <option value="datum-asc">Datum (älteste zuerst)</option>
+          <option value="bewertung-desc">Bewertung (beste zuerst)</option>
+          <option value="bewertung-asc">Bewertung (schlechteste zuerst)</option>
+        </select>
+      </label>
+      <p class="count" id="count" aria-live="polite"></p>
+    </section>
+
+    <section id="grid" class="grid" aria-live="polite"></section>
+    <div id="empty" class="empty" hidden></div>
+
+    <section class="panel" id="hinzufuegen" aria-labelledby="form-title">
+      <h2 id="form-title">Eintrag hinzufügen</h2>
+      <p class="hint">Das Formular erzeugt einen JSON-Eintrag. Kopiere ihn und füge ihn in <code>data/entries.json</code> ein, dann committen – fertig.</p>
+
+      <form id="entry-form" novalidate>
+        <div class="field">
+          <label for="f-name">Name</label>
+          <input id="f-name" name="name" type="text" required maxlength="120" placeholder="z. B. Omas Käsespätzle">
+        </div>
+
+        <div class="field">
+          <span class="label" id="typ-label">Typ</span>
+          <div class="segmented" role="radiogroup" aria-labelledby="typ-label">
+            <label class="seg-radio"><input type="radio" name="typ" value="Rezept" checked><span>Rezept</span></label>
+            <label class="seg-radio"><input type="radio" name="typ" value="Restaurant"><span>Restaurant</span></label>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="label" id="stars-label">Bewertung</span>
+          <div class="star-input" id="star-input" role="radiogroup" aria-labelledby="stars-label"></div>
+        </div>
+
+        <div class="field">
+          <label for="f-datum">Datum</label>
+          <input id="f-datum" name="datum" type="date" required>
+        </div>
+
+        <div class="field field-wide">
+          <label for="f-foto">Foto-URL <span class="optional">(optional)</span></label>
+          <input id="f-foto" name="foto" type="url" placeholder="https://…">
+        </div>
+
+        <div class="field field-wide">
+          <label for="f-notiz">Notiz</label>
+          <textarea id="f-notiz" name="notiz" rows="3" maxlength="1000" placeholder="Was war besonders?"></textarea>
+        </div>
+
+        <p class="form-error" id="form-error" role="alert" hidden></p>
+
+        <div class="field-wide actions">
+          <button type="submit" class="btn btn-primary">JSON erzeugen</button>
+          <button type="reset" class="btn btn-ghost">Zurücksetzen</button>
+        </div>
+      </form>
+
+      <div class="output" id="output" hidden>
+        <label for="json-out">Dein Eintrag (in <code>data/entries.json</code> einfügen)</label>
+        <textarea id="json-out" rows="10" readonly spellcheck="false"></textarea>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" id="copy-btn">In die Zwischenablage</button>
+          <span class="copy-status" id="copy-status" aria-live="polite"></span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">Statisch gehostet auf GitHub Pages · Daten in <code>data/entries.json</code></div>
+  </footer>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
